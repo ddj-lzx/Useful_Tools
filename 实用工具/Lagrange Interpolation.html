@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pattern Solver Pro</title>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --bg: #F2F2F7;
+            --card-bg: #FFFFFF;
+            --text-main: #1D1D1F;
+            --border: #E5E5EA;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-card {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 550px;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+            transition: transform 0.2s;
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #333;
+            letter-spacing: -0.5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 18px;
+            font-size: 17px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            background: #FAFAFA;
+            outline: none;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-family: inherit;
+            text-align: center;
+            color: var(--text-main);
+        }
+
+        input[type="text"]:focus {
+            background: #FFF;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 18px;
+            background-color: var(--primary);
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.97);
+            background-color: #0066CC;
+        }
+
+        /* 结果显示区域 */
+        #result-area {
+            margin-top: 30px;
+            padding: 25px;
+            background-color: #F8F8FA;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            font-family: "SF Mono", "Menlo", "Consolas", monospace;
+            font-size: 15px;
+            line-height: 1.7;
+            word-break: break-all;
+            display: none;
+            user-select: all;
+            -webkit-user-select: all;
+            animation: fadeIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .var-n { color: #D63384; font-weight: bold; }
+        .val-num { color: #007AFF; font-weight: 500; }
+
+        /* 幽灵字符：屏幕不可见，但复制时存在 */
+        .ghost-caret {
+            font-size: 0;
+            opacity: 0;
+            display: inline-block;
+            width: 0;
+            height: 0;
+            user-select: text; 
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-card">
+        <h2>数列规律分析</h2>
+        <div class="input-wrapper">
+            <input type="text" id="numsInput" placeholder="请输入文本" autocomplete="off">
+        </div>
+        <button onclick="computeLagrange()">查找规律</button>
+        <div id="result-area"></div>
+    </div>
+
+    <script>
+        /**
+         * 强力分数类：支持 BigInt 高精度运算
+         * 保证小数、分数、整数混合运算的绝对精确性
+         */
+        class Fraction {
+            constructor(n, d = 1n) {
+                if (d === 0n) throw new Error("Division by zero");
+                if (d < 0n) { n = -n; d = -d; }
+                const common = this.gcd(n < 0n ? -n : n, d);
+                this.n = n / common;
+                this.d = d / common;
+            }
+
+            gcd(a, b) { return b === 0n ? a : this.gcd(b, a % b); }
+
+            add(o) { return new Fraction(this.n * o.d + o.n * this.d, this.d * o.d); }
+            sub(o) { return new Fraction(this.n * o.d - o.n * this.d, this.d * o.d); }
+            mul(o) { return new Fraction(this.n * o.n, this.d * o.d); }
+            div(o) { return new Fraction(this.n * o.d, this.d * o.n); }
+
+            // 解析各种格式输入 (1, 1/2, 0.5, -3.4) 为分数对象
+            static parse(str) {
+                str = str.trim();
+                if (!str) return null;
+
+                try {
+                    // 情况1：分数输入 (e.g. "1/3")
+                    if (str.includes('/')) {
+                        const parts = str.split('/');
+                        if (parts.length !== 2) return null;
+                        return new Fraction(BigInt(parts[0]), BigInt(parts[1]));
+                    }
+                    // 情况2：小数输入 (e.g. "0.5", "-1.25")
+                    if (str.includes('.')) {
+                        const parts = str.split('.');
+                        const integerPartStr = parts[0];
+                        const decimalPartStr = parts[1] || "";
+                        
+                        // 将小数转化为整数：1.25 -> 125 / 100
+                        // 移除小数点
+                        const cleanStr = integerPartStr + decimalPartStr;
+                        const numerator = BigInt(cleanStr);
+                        const denominator = 10n ** BigInt(decimalPartStr.length);
+                        
+                        return new Fraction(numerator, denominator);
+                    }
+                    // 情况3：普通整数
+                    return new Fraction(BigInt(str));
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            // 输出为字符串，严格遵循格式要求
+            toString(isFirst, power) {
+                if (this.n === 0n) return "";
+                let s = "";
+                const absN = this.n < 0n ? -this.n : this.n;
+
+                // 符号处理
+                if (this.n < 0n) s += isFirst ? "-" : " - ";
+                else if (!isFirst) s += " + ";
+
+                // 数值处理
+                if (this.d === 1n) {
+                    // 整数系数：如果是 1 或 -1，且有变量跟随，则省略 1
+                    if (power === 0 || absN !== 1n) {
+                        s += absN.toString();
+                    }
+                    // 整数后紧跟变量，不加空格 (如 2n)
+                } else {
+                    // 分数系数：显示分子/分母
+                    s += `${absN}/${this.d}`;
+                    // 分数后必须加空格 (如 1/2 n)
+                    if (power > 0) s += " "; 
+                }
+                return s;
+            }
+        }
+
+        function computeLagrange() {
+            const raw = document.getElementById('numsInput').value.trim();
+            if (!raw) return;
+
+            // 1. 使用 # 分割，并解析为分数对象
+            const yVals = raw.split('#').map(x => Fraction.parse(x)).filter(x => x !== null);
+            
+            const n = yVals.length;
+            if (n === 0) return;
+            
+            // x 取值为 1, 2, 3...
+            const xVals = Array.from({length: n}, (_, i) => BigInt(i + 1));
+
+            // 2. 拉格朗日插值核心算法 (O(n^2) 原地优化)
+            let poly = Array(n).fill(new Fraction(0n));
+
+            for (let i = 0; i < n; i++) {
+                // 构建基函数 L_i(x) 的分子部分系数
+                let basis = [new Fraction(1n)];
+                let denominator = 1n; // 基函数的分母部分 (BigInt)
+
+                for (let j = 0; j < n; j++) {
+                    if (i === j) continue;
+                    
+                    // 累乘分母: (xi - xj)
+                    denominator *= (xVals[i] - xVals[j]);
+                    
+                    // 累乘分子: poly * (x - xj)
+                    let nextBasis = Array(basis.length + 1).fill(new Fraction(0n));
+                    const xj = new Fraction(xVals[j]);
+                    
+                    for (let k = 0; k < basis.length; k++) {
+                        // 乘 x
+                        nextBasis[k + 1] = nextBasis[k + 1].add(basis[k]); 
+                        // 乘 -xj
+                        nextBasis[k] = nextBasis[k].sub(basis[k].mul(xj));
+                    }
+                    basis = nextBasis;
+                }
+                
+                // 将 y_i * (1/denominator) 乘入基函数
+                // scalar = yVal / denominator
+                const scalar = yVals[i].div(new Fraction(denominator));
+                
+                for (let k = 0; k < basis.length; k++) {
+                    poly[k] = poly[k].add(basis[k].mul(scalar));
+                }
+            }
+
+            // 3. 结果构建与格式化
+            let html = '<span class="var-n">当f(n) = </span>';
+            let terms = "";
+            let first = true;
+
+            // 降幂排列输出
+            for (let i = n - 1; i >= 0; i--) {
+                const c = poly[i];
+                // 如果系数为0，且不是唯一项，则跳过
+                if (c.n === 0n && n > 1) continue;
+
+                const part = c.toString(first, i);
+                
+                // 处理全0的情况
+                if (part === "" && n === 1 && c.n === 0n) {
+                    terms = "0";
+                    break;
+                }
+
+                if (part || (n===1 && c.n===0n)) {
+                    terms += part;
+                    if (i === 1) {
+                        terms += '<span class="var-n">n</span>';
+                    } else if (i > 1) {
+                        // 复制优化：n⁶ -> 复制为 n^6
+                        terms += `<span class="var-n">n<span class="ghost-caret">^</span><sup>${i}</sup></span>`;
+                    }
+                    first = false;
+                }
+            }
+            // 兜底全0
+            if (terms === "") terms = "0";
+            
+            html += terms + ' 时，<br><br>';
+
+            // 4. 验证值输出
+            yVals.forEach((v, idx) => {
+                // v 是 Fraction 对象，直接调用 toString
+                let valStr = v.toString(true, 0).replace(/^\s*\+\s*/, ''); // 去掉可能的开通加号
+                const sep = idx === n - 1 ? '.' : ',<br>';
+                html += `f(${idx + 1}) = <span class="val-num">${valStr}</span>${sep}`;
+            });
+
+            const box = document.getElementById('result-area');
+            box.innerHTML = html;
+            box.style.display = 'block';
+        }
+
+        // 监听回车键
+        document.getElementById('numsInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') computeLagrange();
+        });
+    </script>
+</body>
+</html>

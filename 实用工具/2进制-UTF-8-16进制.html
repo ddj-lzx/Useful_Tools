@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>二进制、十六进制与UTF-8转码器</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>二进制 ↔ 十六进制 ↔ UTF-8转码器</h1>
+    
+    <div>
+        <h3>二进制输入</h3>
+        <textarea id="binaryInput" rows="6" cols="80" placeholder="输入二进制字符串（每8位一个字节，可包含空格）"></textarea><br>
+        <div id="binaryError" style="color:red"></div>
+        <button onclick="convertBinaryToText()">二进制→文本</button>
+        <button onclick="convertBinaryToHex()">二进制→十六进制</button>
+        <button onclick="clearBinary()">清空</button>
+        <button onclick="copyBinary()">复制二进制</button>
+        <span>字节数: <span id="binaryByteCount">0</span></span>
+    </div>
+    
+    <div>
+        <h3>十六进制输入</h3>
+        <textarea id="hexInput" rows="6" cols="80" placeholder="输入十六进制字符串（每两位一个字节，可包含空格）"></textarea><br>
+        <div id="hexError" style="color:red"></div>
+        <button onclick="convertHexToText()">十六进制→文本</button>
+        <button onclick="convertHexToBinary()">十六进制→二进制</button>
+        <button onclick="clearHex()">清空</button>
+        <button onclick="copyHex()">复制十六进制</button>
+        <span>字节数: <span id="hexByteCount">0</span></span>
+    </div>
+    
+    <div>
+        <h3>UTF-8文本输入</h3>
+        <textarea id="textInput" rows="6" cols="80" placeholder="输入UTF-8文本（支持所有语言字符）"></textarea><br>
+        <div id="textError" style="color:red"></div>
+        <button onclick="convertTextToBinary()">文本→二进制</button>
+        <button onclick="convertTextToHex()">文本→十六进制</button>
+        <button onclick="clearText()">清空</button>
+        <button onclick="copyText()">复制文本</button>
+        <span>字符数: <span id="textCharCount">0</span></span>
+    </div>
+    
+    <div>
+        <button onclick="swapBinaryHex()">↔ 交换二进制/十六进制</button>
+        <button onclick="swapBinaryText()">↔ 交换二进制/文本</button>
+        <button onclick="swapHexText()">↔ 交换十六进制/文本</button>
+    </div>
+    
+    <script>
+        const binaryInput = document.getElementById('binaryInput');
+        const hexInput = document.getElementById('hexInput');
+        const textInput = document.getElementById('textInput');
+        const binaryError = document.getElementById('binaryError');
+        const hexError = document.getElementById('hexError');
+        const textError = document.getElementById('textError');
+        const binaryByteCount = document.getElementById('binaryByteCount');
+        const hexByteCount = document.getElementById('hexByteCount');
+        const textCharCount = document.getElementById('textCharCount');
+        
+        // 初始化示例
+        binaryInput.value = "01101000 01100101 01101100 01101100 01101111 00100000 11100101 10101100 10111001 11100100 10111101 10110000";
+        hexInput.value = "68 65 6C 6C 6F 20 E5 AC B9 E4 BD B0";
+        textInput.value = "hello 你好";
+        updateStats();
+        
+        // 更新统计信息
+        function updateStats() {
+            const binaryText = binaryInput.value.replace(/\s/g, '');
+            binaryByteCount.textContent = Math.floor(binaryText.length / 8) || 0;
+            
+            const hexText = hexInput.value.replace(/\s/g, '');
+            hexByteCount.textContent = Math.floor(hexText.length / 2) || 0;
+            
+            textCharCount.textContent = textInput.value.length;
+        }
+        
+        // 复制功能
+        function copyBinary() {
+            binaryInput.select();
+            binaryInput.setSelectionRange(0, 99999); // 对于移动设备
+            navigator.clipboard.writeText(binaryInput.value);
+            alert("二进制内容已复制到剪贴板");
+        }
+        
+        function copyHex() {
+            hexInput.select();
+            hexInput.setSelectionRange(0, 99999); // 对于移动设备
+            navigator.clipboard.writeText(hexInput.value);
+            alert("十六进制内容已复制到剪贴板");
+        }
+        
+        function copyText() {
+            textInput.select();
+            textInput.setSelectionRange(0, 99999); // 对于移动设备
+            navigator.clipboard.writeText(textInput.value);
+            alert("文本内容已复制到剪贴板");
+        }
+        
+        // 二进制转文本
+        function convertBinaryToText() {
+            const binaryStr = binaryInput.value.replace(/\s/g, '');
+            
+            // 验证输入
+            if (!binaryStr) {
+                binaryError.textContent = "请输入二进制字符串";
+                return;
+            }
+            
+            if (binaryStr.length % 8 !== 0) {
+                binaryError.textContent = "二进制长度必须是8的倍数";
+                return;
+            }
+            
+            if (!/^[01]+$/.test(binaryStr)) {
+                binaryError.textContent = "二进制只能包含0和1";
+                return;
+            }
+            
+            binaryError.textContent = "";
+            
+            try {
+                // 将二进制转换为字节数组
+                const bytes = [];
+                for (let i = 0; i < binaryStr.length; i += 8) {
+                    const byte = parseInt(binaryStr.substr(i, 8), 2);
+                    if (isNaN(byte)) throw new Error("无效的二进制数据");
+                    bytes.push(byte);
+                }
+                
+                // 解码为UTF-8文本
+                const decoder = new TextDecoder('utf-8');
+                const text = decoder.decode(new Uint8Array(bytes));
+                textInput.value = text;
+                updateStats();
+                
+            } catch (e) {
+                binaryError.textContent = "转换失败: " + e.message;
+            }
+        }
+        
+        // 二进制转十六进制
+        function convertBinaryToHex() {
+            const binaryStr = binaryInput.value.replace(/\s/g, '');
+            
+            // 验证输入
+            if (!binaryStr) {
+                binaryError.textContent = "请输入二进制字符串";
+                return;
+            }
+            
+            if (binaryStr.length % 8 !== 0) {
+                binaryError.textContent = "二进制长度必须是8的倍数";
+                return;
+            }
+            
+            if (!/^[01]+$/.test(binaryStr)) {
+                binaryError.textContent = "二进制只能包含0和1";
+                return;
+            }
+            
+            binaryError.textContent = "";
+            
+            try {
+                // 将二进制转换为十六进制
+                let hexStr = "";
+                for (let i = 0; i < binaryStr.length; i += 8) {
+                    const byte = parseInt(binaryStr.substr(i, 8), 2);
+                    if (isNaN(byte)) throw new Error("无效的二进制数据");
+                    hexStr += byte.toString(16).padStart(2, '0');
+                    if (i < binaryStr.length - 8) hexStr += " ";
+                }
+                
+                hexInput.value = hexStr.toUpperCase();
+                updateStats();
+                
+            } catch (e) {
+                binaryError.textContent = "转换失败: " + e.message;
+            }
+        }
+        
+        // 十六进制转文本
+        function convertHexToText() {
+            const hexStr = hexInput.value.replace(/\s/g, '');
+            
+            // 验证输入
+            if (!hexStr) {
+                hexError.textContent = "请输入十六进制字符串";
+                return;
+            }
+            
+            if (hexStr.length % 2 !== 0) {
+                hexError.textContent = "十六进制长度必须是2的倍数";
+                return;
+            }
+            
+            if (!/^[0-9A-Fa-f]+$/.test(hexStr)) {
+                hexError.textContent = "十六进制只能包含0-9和A-F";
+                return;
+            }
+            
+            hexError.textContent = "";
+            
+            try {
+                // 将十六进制转换为字节数组
+                const bytes = [];
+                for (let i = 0; i < hexStr.length; i += 2) {
+                    const byte = parseInt(hexStr.substr(i, 2), 16);
+                    if (isNaN(byte)) throw new Error("无效的十六进制数据");
+                    bytes.push(byte);
+                }
+                
+                // 解码为UTF-8文本
+                const decoder = new TextDecoder('utf-8');
+                const text = decoder.decode(new Uint8Array(bytes));
+                textInput.value = text;
+                updateStats();
+                
+            } catch (e) {
+                hexError.textContent = "转换失败: " + e.message;
+            }
+        }
+        
+        // 十六进制转二进制
+        function convertHexToBinary() {
+            const hexStr = hexInput.value.replace(/\s/g, '');
+            
+            // 验证输入
+            if (!hexStr) {
+                hexError.textContent = "请输入十六进制字符串";
+                return;
+            }
+            
+            if (hexStr.length % 2 !== 0) {
+                hexError.textContent = "十六进制长度必须是2的倍数";
+                return;
+            }
+            
+            if (!/^[0-9A-Fa-f]+$/.test(hexStr)) {
+                hexError.textContent = "十六进制只能包含0-9和A-F";
+                return;
+            }
+            
+            hexError.textContent = "";
+            
+            try {
+                // 将十六进制转换为二进制
+                let binaryStr = "";
+                for (let i = 0; i < hexStr.length; i += 2) {
+                    const byte = parseInt(hexStr.substr(i, 2), 16);
+                    if (isNaN(byte)) throw new Error("无效的十六进制数据");
+                    binaryStr += byte.toString(2).padStart(8, '0');
+                    if (i < hexStr.length - 2) binaryStr += " ";
+                }
+                
+                binaryInput.value = binaryStr;
+                updateStats();
+                
+            } catch (e) {
+                hexError.textContent = "转换失败: " + e.message;
+            }
+        }
+        
+        // 文本转二进制
+        function convertTextToBinary() {
+            const text = textInput.value;
+            
+            if (!text) {
+                textError.textContent = "请输入文本";
+                return;
+            }
+            
+            textError.textContent = "";
+            
+            try {
+                // 编码为UTF-8字节数组
+                const encoder = new TextEncoder();
+                const bytes = encoder.encode(text);
+                
+                // 转换为二进制字符串，每8位一组，用空格分隔
+                let binaryStr = "";
+                for (let i = 0; i < bytes.length; i++) {
+                    binaryStr += bytes[i].toString(2).padStart(8, '0');
+                    if (i < bytes.length - 1) binaryStr += " ";
+                }
+                
+                binaryInput.value = binaryStr;
+                updateStats();
+                
+            } catch (e) {
+                textError.textContent = "转换失败: " + e.message;
+            }
+        }
+        
+        // 文本转十六进制
+        function convertTextToHex() {
+            const text = textInput.value;
+            
+            if (!text) {
+                textError.textContent = "请输入文本";
+                return;
+            }
+            
+            textError.textContent = "";
+            
+            try {
+                // 编码为UTF-8字节数组
+                const encoder = new TextEncoder();
+                const bytes = encoder.encode(text);
+                
+                // 转换为十六进制字符串，每两位一组，用空格分隔
+                let hexStr = "";
+                for (let i = 0; i < bytes.length; i++) {
+                    hexStr += bytes[i].toString(16).padStart(2, '0');
+                    if (i < bytes.length - 1) hexStr += " ";
+                }
+                
+                hexInput.value = hexStr.toUpperCase();
+                updateStats();
+                
+            } catch (e) {
+                textError.textContent = "转换失败: " + e.message;
+            }
+        }
+        
+        // 交换内容
+        function swapBinaryHex() {
+            const temp = binaryInput.value;
+            binaryInput.value = hexInput.value;
+            hexInput.value = temp;
+            binaryError.textContent = "";
+            hexError.textContent = "";
+            updateStats();
+        }
+        
+        function swapBinaryText() {
+            const temp = binaryInput.value;
+            binaryInput.value = textInput.value;
+            textInput.value = temp;
+            binaryError.textContent = "";
+            textError.textContent = "";
+            updateStats();
+        }
+        
+        function swapHexText() {
+            const temp = hexInput.value;
+            hexInput.value = textInput.value;
+            textInput.value = temp;
+            hexError.textContent = "";
+            textError.textContent = "";
+            updateStats();
+        }
+        
+        // 清空函数
+        function clearBinary() {
+            binaryInput.value = "";
+            binaryError.textContent = "";
+            updateStats();
+        }
+        
+        function clearHex() {
+            hexInput.value = "";
+            hexError.textContent = "";
+            updateStats();
+        }
+        
+        function clearText() {
+            textInput.value = "";
+            textError.textContent = "";
+            updateStats();
+        }
+        
+        // 实时更新统计
+        binaryInput.addEventListener('input', updateStats);
+        hexInput.addEventListener('input', updateStats);
+        textInput.addEventListener('input', updateStats);
+    </script>
+</body>
+</html>
