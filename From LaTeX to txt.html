@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Exact Solution LaTeX Renderer</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                packages: {'[+]': ['base', 'ams', 'physics', 'boldsymbol', 'color', 'mathtools']}
+            },
+            svg: { fontCache: 'global' },
+            options: { renderActions: { addMenu: [] } }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --bg: #f5f7fa; --panel: #ffffff; --border: #dcdfe6; --text: #2c3e50; }
+        body { font-family: 'Times New Roman', serif, 'Microsoft YaHei'; background: var(--bg); margin: 0; padding: 30px; color: var(--text); }
+        .container { max-width: 1200px; margin: 0 auto; background: var(--panel); padding: 40px; border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.12); }
+        h1 { text-align: center; border-bottom: 2px solid var(--text); padding-bottom: 15px; margin-bottom: 30px; letter-spacing: 1px; }
+        
+        /* 严谨的输入区设计 */
+        textarea { width: 100%; height: 280px; padding: 20px; border: 2px solid var(--border); border-radius: 8px; font-family: 'Fira Code', 'Courier New', monospace; font-size: 16px; margin-bottom: 20px; box-sizing: border-box; line-height: 1.5; resize: vertical; }
+        textarea:focus { border-color: #409eff; outline: none; }
+        
+        /* 纯粹的控制面板 */
+        .controls { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 30px; justify-content: center; }
+        button { padding: 14px 28px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; font-size: 15px; transition: all 0.2s ease; letter-spacing: 0.5px; }
+        .btn-clear { background: #f56c6c; color: white; }
+        .btn-png { background: #409eff; color: white; }
+        .btn-jpg { background: #e6a23c; color: white; }
+        .btn-svg { background: #67c23a; color: white; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); filter: brightness(1.05); }
+
+        /* 解决一切遮挡问题的终极容器方案 */
+        #preview-wrapper { 
+            background: #ffffff; 
+            border: 1px solid #ebeef5; 
+            border-radius: 8px;
+            padding: 40px;
+            overflow-x: auto; /* 绝对允许横向滚动 */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+        
+        #math-output { 
+            /* max-content 是破解截断的终极答案,强制内部元素自然撑开 */
+            width: max-content; 
+            min-width: 100%; 
+            text-align: left; 
+            line-height: 1.8;
+        }
+
+        /* 映射后的排版样式 */
+        .tex-section { font-size: 2em; font-weight: bold; margin: 1.2em 0 0.5em 0; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .tex-subsection { font-size: 1.5em; font-weight: bold; margin: 1em 0 0.5em 0; }
+        .tex-subsubsection { font-size: 1.2em; font-weight: bold; margin: 0.8em 0 0.5em 0; }
+        .tex-text { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Exact Analytic $\text{\LaTeX}$ Engine</h1>
+    
+    <textarea id="latex-input" placeholder="Input your rigorous LaTeX mathematical proof here..." oninput="parseAndRender()">\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+\section{The Exact Solution of Infinite Nested Radicals}
+Ramanujan observed that the infinite nested radical can be solved purely by substituting trigonometric identities without approximations.
+
+\subsection{Proof using Cosine Limits}
+Notice that for any integer $n \ge 1$:
+\begin{equation}
+\sqrt{2+\sqrt{2+\sqrt{2+\dots}}} = 2\cos\left(\frac{\pi}{2^{n+1}}\right)
+\end{equation}
+
+When we compute the limit to infinity, we do not need to assume convergence blindly. We calculate to the very end:
+$$ \lim_{n \to \infty} 2\cos\left(\frac{\pi}{2^{n+1}}\right) = 2\cos(0) = 2 $$
+
+\subsubsection{Matrix Generalization}
+This can also be expressed via transformations in $\mathbb{R}^n$:
+$$
+\mathbf{A} = \begin{pmatrix} 
+1 & \frac{1}{2} & 0 \\ 
+0 & 1 & \frac{1}{2} \\
+0 & 0 & 1 
+\end{pmatrix}
+$$
+
+\end{document}</textarea>
+
+    <div class="controls">
+        <button class="btn-clear" onclick="clearInput()">Clear Data</button>
+        <button class="btn-png" onclick="downloadImage('png')">Download Extreme HD PNG</button>
+        <button class="btn-jpg" onclick="downloadImage('jpg')">Download Extreme HD JPG</button>
+        <button class="btn-svg" onclick="downloadVectorSVG()">Download Pure Vector SVG</button>
+    </div>
+
+    <div id="preview-wrapper">
+        <div id="math-output" class="tex2jax_process"></div>
+    </div>
+</div>
+
+<script>
+    // 毫无遗漏的解析引擎
+    function parseAndRender() {
+        const raw = document.getElementById('latex-input').value;
+        const output = document.getElementById('math-output');
+
+        // 1. 严谨剥离外壳与导言区注释 (使用前瞻正则避免误删转义百分号)
+        let content = raw.replace(/\\documentclass(\[.*?\])?\{.*?\}/g, "")
+                         .replace(/\\usepackage(\[.*?\])?\{.*?\}/g, "")
+                         .replace(/\\begin\{document\}/g, "")
+                         .replace(/\\end\{document\}/g, "")
+                         .replace(/(?<!\\)%.*/g, ""); 
+
+        // 2. 完美的层级映射计算
+        content = content.replace(/\\section\*?\{([\s\S]*?)\}/g, '<div class="tex-section">$1</div>');
+        content = content.replace(/\\subsection\*?\{([\s\S]*?)\}/g, '<div class="tex-subsection">$1</div>');
+        content = content.replace(/\\subsubsection\*?\{([\s\S]*?)\}/g, '<div class="tex-subsubsection">$1</div>');
+        content = content.replace(/\\textbf\{([\s\S]*?)\}/g, '<strong>$1</strong>');
+        content = content.replace(/\\textit\{([\s\S]*?)\}/g, '<em>$1</em>');
+        
+        // 保留换行逻辑以维持排版结构
+        content = content.split('\n\n').map(p => `<div class="tex-text">${p}</div>`).join('');
+
+        // 3. 注入渲染管道
+        output.innerHTML = content;
+
+        // 4. 调用矢量核心重新排版
+        MathJax.typesetPromise([output]).catch((err) => console.error("Rigorous Calculation Interrupted:", err));
+    }
+
+    function clearInput() {
+        document.getElementById('latex-input').value = '';
+        document.getElementById('math-output').innerHTML = '';
+    }
+
+    // 极限高清位图导出
+    function downloadImage(format) {
+        const wrapper = document.getElementById('preview-wrapper');
+        // 将 scale 提升至 6,保留每一个像素的绝对精确度
+        html2canvas(wrapper, {
+            scale: 6, 
+            backgroundColor: "#ffffff",
+            logging: false,
+            useCORS: true
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `exact_proof_${Date.now()}.${format}`;
+            link.href = canvas.toDataURL(`image/${format}`, 1.0);
+            link.click();
+        });
+    }
+
+    // 纯粹的 SVG 矢量图导出 (提取最大最复杂的主公式)
+    function downloadVectorSVG() {
+        const container = document.getElementById('math-output');
+        const svgs = container.querySelectorAll('svg');
+        
+        if (svgs.length === 0) {
+            alert("No mathematical formulas calculated yet!");
+            return;
+        }
+
+        // 寻址算法:找到视觉上最庞大,最核心的公式进行矢量导出
+        let targetSvg = svgs[0];
+        let maxArea = 0;
+        
+        svgs.forEach(svg => {
+            const rect = svg.getBoundingClientRect();
+            const area = rect.width * rect.height;
+            if (area > maxArea) {
+                maxArea = area;
+                targetSvg = svg;
+            }
+        });
+
+        // 深度克隆以避免污染 DOM
+        const clonedSvg = targetSvg.cloneNode(true);
+        clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        
+        // 严谨的步骤:为其注入白色背景,防止在透明查看器中公式被隐形
+        const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.setAttribute("width", "100%");
+        bgRect.setAttribute("height", "100%");
+        bgRect.setAttribute("fill", "#ffffff");
+        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+
+        const svgData = clonedSvg.outerHTML;
+        const blob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'pure_vector_math.svg';
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // 初始化计算
+    window.onload = parseAndRender;
+</script>
+
+</body>
+</html>
