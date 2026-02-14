@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Exact Solution LaTeX Engine</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                packages: {'[+]': ['base', 'ams', 'physics', 'boldsymbol', 'color', 'mathtools']}
+            },
+            svg: { fontCache: 'local' },
+            options: { renderActions: { addMenu: [] } }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <style>
+        :root { --bg: #f5f7fa; --panel: #ffffff; --border: #dcdfe6; --text: #2c3e50; --primary: #409eff; }
+        
+        body { 
+            font-family: 'Times New Roman', serif, 'Microsoft YaHei'; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 20px; 
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+        }
+
+        .container { 
+            width: 100%;
+            max-width: 1000px; 
+            background: var(--panel); 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08); 
+        }
+
+        h1 { 
+            text-align: center; 
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        
+        textarea { 
+            width: 100%; 
+            height: 250px; 
+            padding: 15px; 
+            border: 2px solid var(--border); 
+            border-radius: 8px; 
+            font-family: 'Fira Code', monospace; 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            margin-bottom: 20px;
+            resize: vertical;
+        }
+
+        .controls { 
+            display: flex; 
+            gap: 10px; 
+            flex-wrap: wrap; 
+            margin-bottom: 25px; 
+            justify-content: center; 
+        }
+
+        button { 
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 15px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 14px; 
+            transition: 0.3s;
+            color: white;
+        }
+
+        .btn-clear { background: #f56c6c; }
+        .btn-png { background: #409eff; }
+        .btn-jpg { background: #e6a23c; }
+        .btn-svg { background: #67c23a; }
+        button:active { transform: scale(0.98); }
+
+        #preview-wrapper { 
+            background: #ffffff; 
+            border: 1px solid #eee; 
+            border-radius: 8px;
+            padding: 40px; 
+            overflow-x: auto; 
+            min-height: 100px;
+        }
+        
+        #math-output { 
+            width: max-content; 
+            min-width: 100%; 
+            line-height: 1.6;
+            font-size: 18px;
+        }
+
+        .tex-title { font-size: 2.2em; font-weight: bold; text-align: center; margin-bottom: 10px; }
+        .tex-author { font-size: 1.2em; text-align: center; margin-bottom: 5px; }
+        .tex-date { font-size: 1.1em; text-align: center; margin-bottom: 30px; }
+        .tex-section { font-size: 1.8em; font-weight: bold; margin-top: 25px; border-bottom: 1px solid #ddd; }
+        .tex-subsection { font-size: 1.4em; font-weight: bold; margin-top: 15px; }
+        
+        /* 段落默认具有 2em 缩进, 方便 \noindent 指令生效 */
+        .tex-text { margin: 12px 0; text-indent: 2em; }
+        
+        ol, ul { padding-left: 30px; margin: 12px 0; }
+        li { margin-bottom: 6px; }
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px; }
+            h1 { font-size: 1.4rem; }
+            button { min-width: 100%; }
+            #preview-wrapper { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Rigorous $\text{\LaTeX}$ Analytic Renderer</h1>
+    
+    <textarea id="latex-input" placeholder="请在此处输入 LaTeX 代码..." oninput="parseAndRender()"></textarea>
+
+    <div class="controls">
+        <button class="btn-clear" onclick="clearInput()">Clear Data</button>
+        <button class="btn-png" onclick="downloadImage('png')">Download PNG</button>
+        <button class="btn-jpg" onclick="downloadImage('jpg')">Download JPG</button>
+        <button class="btn-svg" onclick="downloadVectorSVG()">Download SVG</button>
+    </div>
+
+    <div id="preview-wrapper">
+        <div id="math-output"></div>
+    </div>
+</div>
+
+<script>
+    function parseAndRender() {
+        const raw = document.getElementById('latex-input').value;
+        const output = document.getElementById('math-output');
+
+        if (!raw.trim()) {
+            output.innerHTML = '';
+            return;
+        }
+
+        let content = raw;
+
+        // 1. 预处理
+        content = content.replace(/\\documentclass.*?\{.*?\}|\\usepackage.*?\{.*?\}|\\begin\{document\}|\\end\{document\}|(?<!\\)%.*/g, "");
+
+        // 2. 状态算子提取
+        let titleVal = "";
+        let authorVal = "";
+        let dateVal = "";
+        content = content.replace(/\\title\{([\s\S]*?)\}/g, (m, p1) => { titleVal = p1; return ""; });
+        content = content.replace(/\\author\{([\s\S]*?)\}/g, (m, p1) => { authorVal = p1; return ""; });
+        content = content.replace(/\\date\{([\s\S]*?)\}/g, (m, p1) => { dateVal = p1; return ""; });
+
+        // 3. 映射 \maketitle
+        const makeTitleHtml = `
+            <div class="maketitle-container">
+                ${titleVal ? `<div class="tex-title">${titleVal}</div>` : ""}
+                ${authorVal ? `<div class="tex-author">${authorVal}</div>` : ""}
+                ${dateVal ? `<div class="tex-date">${dateVal}</div>` : ""}
+            </div>`;
+        content = content.replace(/\\maketitle/g, makeTitleHtml);
+
+        // 4. 环境全集映射
+        content = content.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (m, inner) => {
+            const items = inner.split('\\item').filter(i => i.trim()).map(i => `<li>${i.trim()}</li>`).join('');
+            return `<ol>${items}</ol>`;
+        });
+        content = content.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (m, inner) => {
+            const items = inner.split('\\item').filter(i => i.trim()).map(i => `<li>${i.trim()}</li>`).join('');
+            return `<ul>${items}</ul>`;
+        });
+        content = content.replace(/\\begin\{center\}([\s\S]*?)\\end\{center\}/g, '<div style="text-align:center">$1</div>');
+        content = content.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, '<blockquote style="border-left:4px solid #ccc; padding-left:15px; font-style:italic;">$1</blockquote>');
+
+        // 5. 垂直间距指令 \vspace{...}
+        content = content.replace(/\\vspace\{([\s\S]*?)\}/g, '<div style="height:$1;"></div>');
+
+        // 6. 样式指令映射
+        content = content.replace(/\\section\*?\{([\s\S]*?)\}/g, '<div class="tex-section">$1</div>');
+        content = content.replace(/\\subsection\*?\{([\s\S]*?)\}/g, '<div class="tex-subsection">$1</div>');
+        content = content.replace(/\\textbf\{([\s\S]*?)\}/g, '<strong>$1</strong>');
+        content = content.replace(/\\textit\{([\s\S]*?)\}/g, '<em>$1</em>');
+        content = content.replace(/\\underline\{([\s\S]*?)\}/g, '<span style="text-decoration:underline;">$1</span>');
+        content = content.replace(/\\huge\{([\s\S]*?)\}/g, '<span style="font-size:2em;">$1</span>');
+        content = content.replace(/\\Large\{([\s\S]*?)\}/g, '<span style="font-size:1.5em;">$1</span>');
+
+        // 7. 拓扑换行与 \noindent 处理
+        content = content.replace(/\\\\/g, '<br/>');
+        content = content.split('\n\n').map(p => {
+            p = p.trim();
+            if (!p) return '';
+            
+            let indentStyle = "";
+            // 严谨检测 \noindent 标记
+            if (p.includes('\\noindent')) {
+                indentStyle = ' style="text-indent: 0;"';
+                p = p.replace(/\\noindent/g, "");
+            }
+
+            const blockTags = ['<div', '<ol', '<ul', '<blockquote'];
+            if (blockTags.some(tag => p.startsWith(tag))) return p;
+            return `<div class="tex-text"${indentStyle}>${p}</div>`;
+        }).join('');
+
+        output.innerHTML = content;
+        MathJax.typesetPromise([output]).catch(err => console.error(err));
+    }
+
+    function clearInput() {
+        document.getElementById('latex-input').value = '';
+        document.getElementById('math-output').innerHTML = '';
+    }
+
+    async function generateSVGData() {
+        const output = document.getElementById('math-output');
+        if (!output || !output.innerText.trim()) { alert("Please input content."); return null; }
+        const width = output.scrollWidth;
+        const height = output.scrollHeight;
+        let styles = "";
+        for (const sheet of document.styleSheets) {
+            try { for (const rule of sheet.cssRules) styles += rule.cssText; } catch (e) {}
+        }
+        const svgString = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+                <foreignObject width="100%" height="100%">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="background:white; height:100%; padding:0; margin:0;">
+                        <style>${styles}</style>
+                        ${output.innerHTML}
+                    </div>
+                </foreignObject>
+            </svg>`;
+        const base64SVG = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgString)));
+        return { url: base64SVG, width, height, raw: svgString };
+    }
+
+    async function downloadImage(format) {
+        const data = await generateSVGData();
+        if (!data) return;
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const scale = 4; 
+            canvas.width = data.width * scale;
+            canvas.height = data.height * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const link = document.createElement('a');
+            link.download = `analytic_proof_export_${Date.now()}.${format}`;
+            link.href = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);
+            link.click();
+        };
+        img.src = data.url;
+    }
+
+    async function downloadVectorSVG() {
+        const data = await generateSVGData();
+        if (!data) return;
+        const blob = new Blob([data.raw], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `vector_exact_proof_${Date.now()}.svg`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+</script>
+
+</body>
+</html>
