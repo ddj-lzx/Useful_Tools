@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Exact Solution LaTeX Engine</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                packages: {'[+]': ['base', 'ams', 'physics', 'boldsymbol', 'color', 'mathtools']}
+            },
+            // 严谨修复: 本地化矢量路径,确保每一个符号的解析解都封装在元素内
+            svg: { fontCache: 'local' },
+            options: { renderActions: { addMenu: [] } }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <style>
+        :root { --bg: #f5f7fa; --panel: #ffffff; --border: #dcdfe6; --text: #2c3e50; --primary: #409eff; }
+        
+        /* 拓扑适配: 全局响应式布局 */
+        body { 
+            font-family: 'Times New Roman', serif, 'Microsoft YaHei'; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 20px; 
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+        }
+
+        .container { 
+            width: 100%;
+            max-width: 1000px; 
+            background: var(--panel); 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08); 
+        }
+
+        h1 { 
+            text-align: center; 
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        
+        /* 输入框: 初始为空, 适配移动端输入 */
+        textarea { 
+            width: 100%; 
+            height: 250px; 
+            padding: 15px; 
+            border: 2px solid var(--border); 
+            border-radius: 8px; 
+            font-family: 'Fira Code', monospace; 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            margin-bottom: 20px;
+            resize: vertical;
+        }
+
+        /* 按钮组: 移动端自动流式排列 */
+        .controls { 
+            display: flex; 
+            gap: 10px; 
+            flex-wrap: wrap; 
+            margin-bottom: 25px; 
+            justify-content: center; 
+        }
+
+        button { 
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 15px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 14px; 
+            transition: 0.3s;
+            color: white;
+        }
+
+        .btn-clear { background: #f56c6c; }
+        .btn-png { background: #409eff; }
+        .btn-jpg { background: #e6a23c; }
+        .btn-svg { background: #67c23a; }
+        button:active { transform: scale(0.98); }
+
+        /* 预览区: 保证绝对不被截断 */
+        #preview-wrapper { 
+            background: #ffffff; 
+            border: 1px solid #eee; 
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto; 
+            min-height: 100px;
+        }
+        
+        #math-output { 
+            width: max-content; 
+            min-width: 100%; 
+            line-height: 1.6;
+            font-size: 18px;
+        }
+
+        /* LaTeX排版映射样式 */
+        .tex-section { font-size: 1.8em; font-weight: bold; margin-top: 20px; border-bottom: 1px solid #ddd; }
+        .tex-subsection { font-size: 1.4em; font-weight: bold; margin-top: 15px; }
+        .tex-text { margin: 10px 0; }
+
+        /* 手机端微调 */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px; }
+            h1 { font-size: 1.4rem; }
+            button { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Rigorous $\text{\LaTeX}$ Analytic Renderer</h1>
+    
+    <textarea id="latex-input" placeholder="请在此处输入 LaTeX 代码..." oninput="parseAndRender()"></textarea>
+
+    <div class="controls">
+        <button class="btn-clear" onclick="clearInput()">Clear Data</button>
+        <button class="btn-png" onclick="downloadImage('png')">Download PNG</button>
+        <button class="btn-jpg" onclick="downloadImage('jpg')">Download JPG</button>
+        <button class="btn-svg" onclick="downloadVectorSVG()">Download SVG</button>
+    </div>
+
+    <div id="preview-wrapper">
+        <div id="math-output"></div>
+    </div>
+</div>
+
+<script>
+    function parseAndRender() {
+        const raw = document.getElementById('latex-input').value;
+        const output = document.getElementById('math-output');
+
+        if (!raw.trim()) {
+            output.innerHTML = '';
+            return;
+        }
+
+        // 严谨的正则映射逻辑
+        let content = raw.replace(/\\documentclass.*?\{.*?\}|\\usepackage.*?\{.*?\}|\\begin\{document\}|\\end\{document\}|(?<!\\)%.*/g, ""); 
+        content = content.replace(/\\section\*?\{([\s\S]*?)\}/g, '<div class="tex-section">$1</div>');
+        content = content.replace(/\\subsection\*?\{([\s\S]*?)\}/g, '<div class="tex-subsection">$1</div>');
+        content = content.replace(/\\textbf\{([\s\S]*?)\}/g, '<strong>$1</strong>');
+        
+        content = content.split('\n\n').map(p => p.trim() ? `<div class="tex-text">${p}</div>` : '').join('');
+
+        output.innerHTML = content;
+        MathJax.typesetPromise([output]).catch(err => console.error(err));
+    }
+
+    function clearInput() {
+        document.getElementById('latex-input').value = '';
+        document.getElementById('math-output').innerHTML = '';
+    }
+
+    // ==================== 底层解析引擎: 解决无反应的终极方案 ====================
+    async function generateSVGData() {
+        const output = document.getElementById('math-output');
+        if (!output || !output.innerText.trim()) {
+            alert("请输入内容后重试.");
+            return null;
+        }
+
+        // 1. 精确获取内容尺寸
+        const width = output.scrollWidth;
+        const height = output.scrollHeight;
+
+        // 2. 严谨提取样式, 保证导出图片与预览一模一样
+        let styles = "";
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) styles += rule.cssText;
+            } catch (e) {}
+        }
+
+        // 3. 构造自包含的 XML 字符串
+        const svgString = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+                <foreignObject width="100%" height="100%">
+                    <div xmlns="http://www.w3.org/1999/xhtml" style="background:white; height:100%; padding:0; margin:0;">
+                        <style>${styles}</style>
+                        ${output.innerHTML}
+                    </div>
+                </foreignObject>
+            </svg>`;
+
+        // 4. 将 XML 编码为安全的 Base64, 解决浏览器不响应的 bug
+        const base64SVG = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgString)));
+        return { url: base64SVG, width, height, raw: svgString };
+    }
+
+    async function downloadImage(format) {
+        const data = await generateSVGData();
+        if (!data) return;
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const scale = 4; // 4倍超清渲染
+            canvas.width = data.width * scale;
+            canvas.height = data.height * scale;
+            const ctx = canvas.getContext('2d');
+            
+            // 严谨绘制
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            const link = document.createElement('a');
+            link.download = `proof_export_${Date.now()}.${format}`;
+            link.href = canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 1.0);
+            link.click();
+        };
+        img.src = data.url;
+    }
+
+    async function downloadVectorSVG() {
+        const data = await generateSVGData();
+        if (!data) return;
+        const blob = new Blob([data.raw], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `vector_proof_${Date.now()}.svg`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+</script>
+
+</body>
+</html>
